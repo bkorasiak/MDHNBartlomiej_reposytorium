@@ -4,7 +4,7 @@ import datetime
 # --- KROK 1: PRZYGOTOWANIE DANYCH ---
 # Wczytujemy zbiór Online Retail.csv[cite: 18].
 # Celem jest przygotowanie danych do modelu gwiazdy poprzez usunięcie błędnych rekordów[cite: 130].
-df = pd.read_csv("Online_Retail.csv")
+df = pd.read_csv("Online_Retail.csv", encoding="ISO-8859-1")
 
 # Usunięcie rekordów bez CustomerID, transakcji anulowanych (C) oraz wartości <= 0[cite: 135, 136, 137, 138].
 # Działanie to zapobiega zafałszowaniu wyników przez błędne dane (zasada Garbage In, Garbage Out)[cite: 153].
@@ -37,7 +37,7 @@ dim_customer = df[["CustomerID", "Country"]].drop_duplicates().reset_index(drop=
 dim_customer = dim_customer.merge(dim_country, on="Country").drop(columns=["Country"])
 dim_customer["CustomerSK"] = dim_customer.index + 1
 dim_customer["StartDate"] = pd.to_datetime("2026-01-01") # Data rozpoczęcia obowiązywania rekordu[cite: 279].
-dim_customer["EndDate"] = pd.to_datetime("9999-12-31")   # Data zakończenia obowiązywania rekordu[cite: 279].
+dim_customer["EndDate"] = pd.to_datetime("2261-12-31")  # Data zakończenia obowiązywania rekordu[cite: 279].
 dim_customer["IsCurrent"] = True                         # Flaga aktualnego rekordu[cite: 280].
 
 # Wymiar Czasu
@@ -61,3 +61,14 @@ dim_country.to_csv("DimCountry.csv", index=False)
 dim_date.to_csv("DimDate.csv", index=False)
 
 print("Hurtownia danych została zaimplementowana pomyślnie.")
+"""
+ODPOWIEDZI NA PYTANIA KONTROLNE (LAB 3):
+1. Ziarno (Grain): Ziarnem tabeli faktów jest pojedyncza pozycja na fakturze
+   (identyfikowana przez InvoiceNo i StockCode).
+2. Klucze sztuczne (Surrogate Keys): Zastosowano CustomerSK i ProductSK, aby
+   uniezależnić hurtownię od zmian w systemach źródłowych i umożliwić wersjonowanie SCD2.
+3. SCD Typu 2: Zaimplementowano kolumny StartDate, EndDate i IsCurrent dla wymiaru klienta,
+   co pozwala na śledzenie historycznych zmian danych bez nadpisywania starych rekordów.
+4. Data graniczna: Wybrano rok 2261 jako EndDate dla aktywnych rekordów ze względu
+   na limity biblioteki Pandas (limit nanosekundowy).
+"""
