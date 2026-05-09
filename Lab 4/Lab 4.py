@@ -1,49 +1,65 @@
 import pandas as pd
 import numpy as np
 
-# --- ZADANIE 1: Budowa pipeline ETL ---
-# Krok 1: Extract (Wczytanie danych)
-# Używamy kodowania ISO-8859-1, aby uniknąć błędów Unicode z poprzednich zajęć.
-df = pd.read_csv("Online_Retail.csv", encoding="ISO-8859-1")
+"""
+ODPOWIEDZI NA PYTANIA KONTROLNE (LAB 4):
+1. Przychód i wartość sprzedaży: Dodaliśmy kolumnę 'Revenue' (Quantity * UnitPrice),
+   aby uniknąć powtarzania obliczeń w raportach.
+2. Dodatkowe kolumny: Rozbicie daty na Year, Month, Day optymalizuje filtrowanie
+   i grupowanie danych czasowych w hurtowni.
+3. Integracja: Wybraliśmy 'pd.concat', ponieważ oba zbiory mają tę samą strukturę
+   i reprezentują kolejne okresy, co pozwala na stworzenie jednej tabeli faktów.
+4. Jakość danych: Filtrowanie brakujących CustomerID i ujemnych wartości
+   zapewnia spójność i wiarygodność miar w modelu.
+"""
 
-# Krok 2: Transform (Czyszczenie i przygotowanie)
-# 1. Usuwamy rekordy bez CustomerID
-df = df.dropna(subset=["CustomerID"])
-# 2. Usuwamy ujemne ilości i ceny (filtrowanie błędów)
-df = df[(df["Quantity"] > 0) & (df["UnitPrice"] >= 0)]
-# 3. Usuwamy duplikaty
-df = df.drop_duplicates()
-# 4. Poprawa typów danych i rozbicie daty
-df["InvoiceDate"] = pd.to_datetime(df["InvoiceDate"])
-df["Year"] = df["InvoiceDate"].dt.year
-df["Month"] = df["InvoiceDate"].dt.month
-df["Day"] = df["InvoiceDate"].dt.day
-# 5. Dodatkowa kolumna miary (Przychód) - ułatwia późniejszą analizę wartości sprzedaży
-df["Revenue"] = df["Quantity"] * df["UnitPrice"]
+# --- ZADANIE 1: ETL Pipeline ---
+print("Uruchamianie Zadania 1...")
 
-# Krok 3: Load (Zapis tabeli faktów z Zadania 1)
-fact_sales = df[["InvoiceNo", "StockCode", "CustomerID", "InvoiceDate", "Quantity", "Revenue"]]
-fact_sales.to_csv("fact_sales.csv", index=False)
-print("Zadanie 1 zakończone: Utworzono fact_sales.csv")
+# Extract: Wczytanie z kodowaniem ISO-8859-1 dla uniknięcia błędów Unicode
+df1 = pd.read_csv("Online_Retail.csv", encoding="ISO-8859-1")
 
-# --- ZADANIE 2: Integracja danych z wielu źródeł ---
-# Krok 1: Extract (Drugi dataset)
-# Uwaga: Plik Online_Retail_II.xlsx musi być wgrany na PythonAnywhere
+# Transform: Czyszczenie i przygotowanie miar
+df1 = df1.dropna(subset=["CustomerID"])
+df1 = df1[(df1["Quantity"] > 0) & (df1["UnitPrice"] >= 0)]
+df1 = df1.drop_duplicates()
+
+# Transform: Przygotowanie wymiaru czasu i miary Revenue
+df1["InvoiceDate"] = pd.to_datetime(df1["InvoiceDate"])
+df1["Year"] = df1["InvoiceDate"].dt.year
+df1["Month"] = df1["InvoiceDate"].dt.month
+df1["Day"] = df1["InvoiceDate"].dt.day
+df1["Revenue"] = df1["Quantity"] * df1["UnitPrice"]
+
+# Load: Zapis podstawowej tabeli faktów
+df1.to_csv("fact_sales.csv", index=False)
+print("Utworzono: fact_sales.csv")
+
+
+# --- ZADANIE 2: Integracja wielu źródeł ---
+print("\nUruchamianie Zadania 2...")
+
 try:
+    # Extract: Wczytanie drugiego źródła (XLSX)
     df2 = pd.read_excel("online_retail_II.xlsx")
-    
-    # Krok 2: Transform (Integracja i ujednolicenie)
-    # Sprawdzamy czy nazwy kolumn są spójne. Jeśli nie, ujednolicamy do schematu z df1.
-    # Wstępne czyszczenie df2 analogicznie do df1
-    df2 = df2.dropna(subset=["Customer ID"]) # W II części nazwa może mieć spację
-    df2.columns = df.columns[:8] # Próba ujednolicenia nazw kolumn do pierwszego zbioru
-    
-    # Krok 3: Merge (Połączenie zbiorów)
-    # Używamy concat, ponieważ chcemy dokleić nowe rekordy pod spód
-    df_all = pd.concat([df, df2], ignore_index=True)
-    
-    # Krok 4: Load (Zapis zintegrowanej tabeli faktów)
+
+    # Transform: Ujednolicenie nazw kolumn (rozwiązanie konfliktu nazw)
+    # W zbiorze II kolumna klienta często nazywa się 'Customer ID' (ze spacją)
+    df2.columns = [c.replace(" ", "") for c in df2.columns]
+
+    # Czyszczenie zbioru II przed połączeniem
+    df2 = df2.dropna(subset=["CustomerID"])
+    df2 = df2[(df2["Quantity"] > 0) & (df2["Price"] >= 0)] # W II może być 'Price' zamiast 'UnitPrice'
+    df2 = df2.rename(columns={"Price": "UnitPrice"})
+
+    # Merge: Połączenie (concat) - zachowujemy wszystkie rekordy z obu lat
+    df_all = pd.concat([df1, df2], ignore_index=True)
+
+    # Load: Zapis zintegrowanej hurtowni
     df_all.to_csv("fact_sales_integrated.csv", index=False)
-    print("Zadanie 2 zakończone: Utworzono fact_sales_integrated.csv")
+    print("Utworzono: fact_sales_integrated.csv")
+
 except FileNotFoundError:
-    print("Błąd: Brak pliku online_retail_II.xlsx. Wgraj go, aby wykonać Zadanie 2.")
+    print("Błąd: Plik online_retail_II.xlsx nie został znaleziony. Pomiń Zadanie 2 lub wgraj plik.")
+
+print("\nProces ETL zakończony pomyślnie.")
